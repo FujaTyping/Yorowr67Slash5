@@ -13,17 +13,22 @@ module.exports = (db) => {
             return res.status(400).send('กรุณากรอกข้อมูลให้ครบถ้วน');
         } else {
             try {
-                const browser = await puppeteer.launch({ headless: true });
+                const browser = await puppeteer.launch({
+                    headless: true,
+                    args: ['--no-sandbox', '--disable-setuid-sandbox']
+                });
                 const page = await browser.newPage();
                 await page.goto(`http://202.129.48.202/${MA}/`);
 
                 await page.type('#ContentPlaceHolder1_TextBox1', ID);
                 await page.type('#ContentPlaceHolder1_TextBox2', PAS);
 
-                await page.click('#ContentPlaceHolder1_Button1');
+                await Promise.all([
+                    page.click('#ContentPlaceHolder1_Button1'),
+                    page.waitForNavigation({ waitUntil: 'domcontentloaded' })
+                ]);
 
                 await page.waitForSelector('#ContentPlaceHolder1_Label3');
-
                 const errorMessage = await page.$eval('#ContentPlaceHolder1_Label3', (element) => element.innerText);
                 if (errorMessage.includes('ไม่พบข้อมูลนักเรียนหมายเลขประจำตัว')) {
                     await browser.close();
@@ -59,10 +64,11 @@ module.exports = (db) => {
 
                 res.json({ Header, HeaderName, GradeTable, DetailsTable });
             } catch (error) {
-                res.status(500).send(`ไม่สามารถดึงข้อมูลได้ ${error.message}`);
+                res.status(500).send(`ไม่สามารถดึงข้อมูลได้ (${error.message})`);
             }
         }
     });
+
 
     return {
         baseRoute: '/grade',
